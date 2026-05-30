@@ -213,7 +213,7 @@
 <div class="container">
     <div class="header">
         <h2>Batch Image Renamer</h2>
-        <span class="status-badge">v2.1.0-stable</span>
+        <span class="status-badge">v3.0.0-pro</span>
     </div>
 
     <div class="panel">
@@ -228,7 +228,7 @@
         <div class="settings-grid">
             <div class="input-group" style="grid-column: 1 / -1;">
                 <label>Naming Pattern ({NUMBER} will be replaced)</label>
-                <input type="text" id="patternInput" value="원하는_제목을_입력해주세요.-{NUMBER}">
+                <input type="text" id="patternInput" value="원하는_제목을_적어주세요.-{NUMBER}">
             </div>
             
             <div class="input-group">
@@ -262,7 +262,7 @@
         <label style="display: block; margin-bottom: 16px;">Queue</label>
         <div class="file-list" id="fileList"></div>
         <div style="margin-top: 24px;">
-            <button class="btn btn-primary" id="downloadAllBtn">Download All (High Quality)</button>
+            <button class="btn btn-primary" id="downloadAllBtn">Save to Folder (Direct Write)</button>
         </div>
     </div>
 </div>
@@ -335,51 +335,67 @@
         });
     });
 
-    // 딜레이 함수 (시간 증가)
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-    // 개별 원본 파일 순차 다운로드 (안전성 강화)
+    // [핵심 변경] File System Access API를 이용한 폴더 직접 저장
     downloadAllBtn.addEventListener('click', async function() {
         if (uploadedFiles.length === 0) return;
 
-        downloadAllBtn.textContent = 'Downloading... Do not close window';
-        downloadAllBtn.style.opacity = '0.5';
-        downloadAllBtn.style.pointerEvents = 'none';
-
-        const rows = document.querySelectorAll('.file-row');
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const finalName = row.querySelector('.row-name').value.trim();
-            const finalExt = row.querySelector('.row-ext').value;
-            const file = uploadedFiles[i];
-
-            if (finalName && file) {
-                const objectUrl = URL.createObjectURL(file);
-                const link = document.createElement('a');
-                link.href = objectUrl;
-                link.download = `${finalName}${finalExt}`;
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // [핵심 변경점] 메모리 해제를 1초가 아닌 60초 뒤로 미루어 크롬이 충분히 다운로드할 시간을 줌
-                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-
-                // [핵심 변경점] 크롬 스팸 차단 방지를 위해 다운로드 간격을 0.3초 -> 0.8초로 늘림
-                await delay(800);
-            }
+        // 브라우저 지원 여부 확인 (크롬, 엣지, 오페라 등 지원)
+        if (!('showDirectoryPicker' in window)) {
+            alert('현재 브라우저는 폴더 직접 저장 기능을 지원하지 않습니다. 크롬(Chrome)이나 엣지(Edge) 브라우저를 사용해주세요.');
+            return;
         }
 
-        downloadAllBtn.textContent = 'Download All Completed!';
-        downloadAllBtn.style.opacity = '1';
-        
-        // 3초 뒤에 원래 텍스트로 복구
-        setTimeout(() => {
-            downloadAllBtn.textContent = 'Download All (High Quality)';
-            downloadAllBtn.style.pointerEvents = 'auto';
-        }, 3000);
+        try {
+            // 1. 사용자에게 저장할 폴더를 선택하라는 창을 띄움
+            const dirHandle = await window.showDirectoryPicker({
+                mode: 'readwrite'
+            });
+
+            downloadAllBtn.textContent = 'Saving directly to folder...';
+            downloadAllBtn.style.opacity = '0.5';
+            downloadAllBtn.style.pointerEvents = 'none';
+
+            const rows = document.querySelectorAll('.file-row');
+
+            // 2. 선택한 폴더에 원본 파일 데이터를 다이렉트로 쓰기 (네트워크 경유 없음)
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const finalName = row.querySelector('.row-name').value.trim();
+                const finalExt = row.querySelector('.row-ext').value;
+                const file = uploadedFiles[i];
+
+                if (finalName && file) {
+                    const fullFileName = `${finalName}${finalExt}`;
+                    
+                    // 폴더 안에 빈 파일 생성
+                    const fileHandle = await dirHandle.getFileHandle(fullFileName, { create: true });
+                    // 쓰기 스트림 열기
+                    const writable = await fileHandle.createWritable();
+                    // 원본 파일 데이터 쓰기 (화질 100% 보존)
+                    await writable.write(file);
+                    // 스트림 닫기 (저장 완료)
+                    await writable.close();
+                }
+            }
+
+            downloadAllBtn.textContent = 'Saved Successfully!';
+            downloadAllBtn.style.backgroundColor = '#10b981'; // 성공 시 녹색
+            
+        } catch (error) {
+            // 사용자가 폴더 선택을 취소한 경우는 에러로 보지 않음
+            if (error.name !== 'AbortError') {
+                console.error(error);
+                alert('파일 저장 중 오류가 발생했습니다.');
+            }
+        } finally {
+            // 3초 뒤 버튼 상태 복구
+            setTimeout(() => {
+                downloadAllBtn.textContent = 'Save to Folder (Direct Write)';
+                downloadAllBtn.style.backgroundColor = 'var(--accent-color)';
+                downloadAllBtn.style.opacity = '1';
+                downloadAllBtn.style.pointerEvents = 'auto';
+            }, 3000);
+        }
     });
 </script>
 
