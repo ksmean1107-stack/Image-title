@@ -571,7 +571,7 @@
     <span class="bottom-info" id="bottom-info"></span>
     <button class="btn btn-primary" id="download-all-btn">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/><rect x="3" y="19" width="18" height="2" rx="1" fill="currentColor" stroke="none"/></svg>
-      전체 이미지 다운로드
+      전체 이미지 새 탭으로 열기
     </button>
   </div>
 
@@ -635,8 +635,8 @@
         <div class="item-actions">
           <button class="btn btn-ghost btn-sm" onclick="removeFile(${i})">✕</button>
           <button class="btn btn-success btn-sm" onclick="downloadOne(${i})">
-            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-            다운
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+            열기
           </button>
         </div>`;
       imageList.appendChild(div);
@@ -842,8 +842,9 @@
   // /api/download 서버로 blob 전송 → Content-Disposition 헤더로 응답
   // 안드로이드 크롬에서도 파일명 100% 강제 적용
   async function triggerDownload(blob, filename) {
+    // API로 blob 전송 → 새 탭에서 열기
+    // URL에 파일명이 포함되어 있어서 안드로이드에서 저장/드래그 시 파일명 그대로 적용됨
     try {
-      // API로 blob 전송 → Content-Disposition 헤더로 응답받기
       const form = new FormData();
       form.append('file', blob, filename);
       form.append('filename', filename);
@@ -851,37 +852,20 @@
       const res = await fetch('/api/download', { method: 'POST', body: form });
       if (!res.ok) throw new Error('API error');
 
-      // 응답을 arrayBuffer로 받아서 새 Blob 생성
       const buf = await res.arrayBuffer();
       const mime = blob.type || 'application/octet-stream';
       const finalBlob = new Blob([buf], { type: mime });
+      const url = URL.createObjectURL(finalBlob);
 
-      // base64 data URL 방식 — 안드로이드에서 가장 안정적
-      const reader = new FileReader();
-      reader.onload = () => {
-        const a = document.createElement('a');
-        a.href = reader.result;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      reader.readAsDataURL(finalBlob);
+      // 새 탭으로 열기 — 탭에서 이미지 길게 누르거나 드래그해서 올리면 파일명 유지
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
 
     } catch (e) {
-      // 폴백: 원본 blob을 base64로
-      const reader = new FileReader();
-      reader.onload = () => {
-        const a = document.createElement('a');
-        a.href = reader.result;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      reader.readAsDataURL(blob);
+      // 폴백: 그냥 blob URL로 새 탭 열기
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
   }
 
@@ -902,48 +886,21 @@
     if (!files.length) return;
 
     dlAllBtn.disabled = true;
-    dlAllBtn.textContent = '압축 중...';
+    dlAllBtn.textContent = '처리 중...';
 
     try {
-      const JSZip = window.JSZip;
-      const zip = new JSZip();
-
-      // 파일명 중복 방지용 카운터
-      const nameCount = {};
-
       for (const item of files) {
         const blob = await reExportBlob(item);
-        let name = item.renamedName;
-        if (nameCount[name] !== undefined) {
-          nameCount[name]++;
-          const dot = name.lastIndexOf('.');
-          name = dot !== -1
-            ? name.slice(0, dot) + `_${nameCount[name]}` + name.slice(dot)
-            : name + `_${nameCount[name]}`;
-        } else {
-          nameCount[name] = 0;
-        }
-        zip.file(name, blob);
+        await triggerDownload(blob, item.renamedName);
+        await new Promise(r => setTimeout(r, 300));
       }
-
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'images.zip';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-      showToast('📦', `${files.length}개 파일이 zip으로 다운로드됩니다`);
+      showToast('🖼', `${files.length}개 이미지를 새 탭으로 열었습니다`);
     } catch (err) {
-      showToast('⚠️', '다운로드 중 오류가 발생했습니다');
+      showToast('⚠️', '오류가 발생했습니다');
       console.error(err);
     } finally {
       dlAllBtn.disabled = false;
-      dlAllBtn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/><rect x="3" y="19" width="18" height="2" rx="1" fill="currentColor" stroke="none"/></svg> 전체 이미지 다운로드`;
+      dlAllBtn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg> 전체 이미지 새 탭으로 열기`;
     }
   });
 
