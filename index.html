@@ -3,156 +3,293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>이미지 이름 변경기</title>
+    <title>다중 이미지 이름 일괄 변경기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-            background-color: #f4f7f6;
+            font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+            background-color: #fafafa;
+            color: #333;
+            margin: 0;
+            padding: 40px 20px;
             display: flex;
             justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
         }
         .container {
             background: white;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
             width: 100%;
-            max-width: 400px;
+            max-width: 800px;
+        }
+        h2 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 30px;
             text-align: center;
+            border-radius: 8px;
+            background-color: #fcfcfc;
+            margin-bottom: 25px;
+            cursor: pointer;
+            transition: border-color 0.2s;
         }
-        h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        .upload-box {
-            border: 2px dashed #007bff;
+        .upload-section:hover { border-color: #000; }
+        
+        .settings-panel {
+            background: #f4f4f5;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
-            background-color: #f9fbfd;
+            margin-bottom: 25px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
         }
-        input[type="file"] {
-            width: 100%;
-            cursor: pointer;
-        }
-        #imagePreview {
-            max-width: 100%;
-            max-height: 200px;
-            margin-top: 15px;
-            border-radius: 8px;
-            display: none;
-            object-fit: contain;
-        }
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #555;
-            font-size: 14px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
+        .setting-group { display: flex; flex-direction: column; gap: 5px; }
+        .setting-group label { font-size: 13px; font-weight: bold; color: #555; }
+        .setting-group input, .setting-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
             border-radius: 6px;
-            box-sizing: border-box;
             font-size: 14px;
         }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #007bff;
+        .range-inputs { display: flex; align-items: center; gap: 10px; }
+        .range-inputs input { width: 100%; }
+        
+        .btn-apply {
+            grid-column: 1 / -1;
+            padding: 10px;
+            background-color: #111;
             color: white;
             border: none;
             border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-apply:hover { background-color: #333; }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .file-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .file-row img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        .file-info {
+            flex-grow: 1;
+            display: flex;
+            gap: 10px;
+        }
+        .file-info input[type="text"] {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .file-info select {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .download-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #0070f3; /* Vercel Blue */
+            color: white;
+            border: none;
+            border-radius: 8px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s;
         }
-        button:hover {
-            background-color: #0056b3;
-        }
+        .download-btn:hover { background-color: #005bb5; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>이미지 이름 변경기</h2>
+    <h2>다중 이미지 이름 일괄 변경</h2>
     
-    <div class="upload-box">
-        <input type="file" id="imageInput" accept="image/*">
-        <img id="imagePreview" alt="미리보기 이미지">
+    <label class="upload-section">
+        <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+        <div>📁 클릭하여 여러 이미지를 업로드하세요</div>
+    </label>
+
+    <div class="settings-panel">
+        <div class="setting-group" style="grid-column: 1 / -1;">
+            <label>이름 규칙 패턴 ({NUMBER}가 숫자로 치환됩니다)</label>
+            <input type="text" id="patternInput" value="리나_{NUMBER}">
+        </div>
+        
+        <div class="setting-group">
+            <label>번호 범위 (시작 ~ 끝)</label>
+            <div class="range-inputs">
+                <input type="number" id="startNum" value="1" min="0">
+                <span>~</span>
+                <input type="number" id="endNum" value="9" min="0">
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <label>숫자 길이 (예: 2로 설정 시 01, 02)</label>
+            <input type="number" id="padLen" value="2" min="1">
+        </div>
+
+        <div class="setting-group" style="grid-column: 1 / -1;">
+            <label>전체 확장자 일괄 변경</label>
+            <select id="globalExt">
+                <option value="">개별 설정 유지</option>
+                <option value=".png">.png 로 통일</option>
+                <option value=".jpg">.jpg 로 통일</option>
+                <option value=".webp">.webp 로 통일</option>
+                <option value=".gif">.gif 로 통일</option>
+            </select>
+        </div>
+
+        <button class="btn-apply" id="applyBtn">규칙 일괄 적용하기</button>
     </div>
 
-    <div class="input-group">
-        <label for="newNameInput">새로운 파일 이름 (확장자 제외)</label>
-        <input type="text" id="newNameInput" placeholder="예: 변경할-이미지-이름">
-    </div>
+    <div class="file-list" id="fileList">
+        </div>
 
-    <button id="downloadBtn">새 이름으로 저장하기</button>
+    <button class="download-btn" id="downloadAllBtn">전체 ZIP으로 다운로드</button>
 </div>
 
 <script>
     const imageInput = document.getElementById('imageInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const newNameInput = document.getElementById('newNameInput');
-    const downloadBtn = document.getElementById('downloadBtn');
+    const fileList = document.getElementById('fileList');
+    const applyBtn = document.getElementById('applyBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
 
-    let currentFile = null;
+    let uploadedFiles = []; // 원본 File 객체를 저장할 배열
 
-    // 이미지 업로드 시 미리보기 및 기존 이름 표시
+    // 파일 업로드 처리
     imageInput.addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        if (file) {
-            currentFile = file;
-            
-            // 이미지 미리보기 렌더링
-            imagePreview.src = URL.createObjectURL(file);
-            imagePreview.style.display = 'inline-block';
+        const files = Array.from(event.target.files);
+        if (files.length === 0) return;
 
-            // 기존 파일 이름에서 확장자를 제외한 부분만 추출하여 입력창에 채워줌
-            const nameParts = file.name.split('.');
-            nameParts.pop(); // 확장자 제거
-            newNameInput.value = nameParts.join('.');
-        }
+        files.forEach(file => {
+            uploadedFiles.push(file);
+            
+            const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
+            const originalExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            const objectURL = URL.createObjectURL(file);
+
+            // 행(Row) UI 생성
+            const row = document.createElement('div');
+            row.className = 'file-row';
+            row.innerHTML = `
+                <img src="${objectURL}" alt="미리보기">
+                <div class="file-info">
+                    <input type="text" class="row-name" value="${originalName}">
+                    <select class="row-ext">
+                        <option value=".png" ${originalExt === '.png' ? 'selected' : ''}>.png</option>
+                        <option value=".jpg" ${originalExt === '.jpg' || originalExt === '.jpeg' ? 'selected' : ''}>.jpg</option>
+                        <option value=".webp" ${originalExt === '.webp' ? 'selected' : ''}>.webp</option>
+                        <option value=".gif" ${originalExt === '.gif' ? 'selected' : ''}>.gif</option>
+                    </select>
+                </div>
+            `;
+            fileList.appendChild(row);
+        });
+        
+        // input 초기화 (같은 파일 재업로드 방지)
+        imageInput.value = '';
     });
 
-    // 다운로드 버튼 클릭 이벤트
-    downloadBtn.addEventListener('click', function() {
-        if (!currentFile) {
-            alert('먼저 이미지를 업로드해주세요.');
+    // 규칙 일괄 적용 로직
+    applyBtn.addEventListener('click', function() {
+        const pattern = document.getElementById('patternInput').value;
+        const start = parseInt(document.getElementById('startNum').value);
+        const end = parseInt(document.getElementById('endNum').value);
+        const pad = parseInt(document.getElementById('padLen').value);
+        const globalExt = document.getElementById('globalExt').value;
+
+        const rows = document.querySelectorAll('.file-row');
+        let currentNum = start;
+
+        rows.forEach(row => {
+            // 끝 번호를 초과하면 더 이상 번호를 매기지 않음
+            if (currentNum > end) return; 
+
+            const nameInput = row.querySelector('.row-name');
+            const extSelect = row.querySelector('.row-ext');
+
+            // 1) 자릿수에 맞게 숫자 패딩 (예: 1 -> "01")
+            const paddedNum = String(currentNum).padStart(pad, '0');
+            
+            // 2) {NUMBER} 치환
+            nameInput.value = pattern.replace('{NUMBER}', paddedNum);
+
+            // 3) 전체 확장자 변경이 설정되어 있으면 개별 선택박스 값도 변경
+            if (globalExt !== "") {
+                extSelect.value = globalExt;
+            }
+
+            currentNum++;
+        });
+    });
+
+    // 전체 ZIP 다운로드 로직
+    downloadAllBtn.addEventListener('click', async function() {
+        if (uploadedFiles.length === 0) {
+            alert('업로드된 파일이 없습니다.');
             return;
         }
 
-        const newName = newNameInput.value.trim();
-        if (!newName) {
-            alert('새로운 파일 이름을 입력해주세요.');
-            return;
+        downloadAllBtn.textContent = '압축 중... 잠시만 기다려주세요';
+        downloadAllBtn.style.backgroundColor = '#666';
+
+        const zip = new JSZip();
+        const rows = document.querySelectorAll('.file-row');
+
+        rows.forEach((row, index) => {
+            const finalName = row.querySelector('.row-name').value.trim();
+            const finalExt = row.querySelector('.row-ext').value;
+            const file = uploadedFiles[index];
+
+            if (finalName && file) {
+                // 원본 파일을 그대로 ZIP에 새 이름으로 추가
+                zip.file(`${finalName}${finalExt}`, file);
+            }
+        });
+
+        // ZIP 파일 생성 및 다운로드 트리거
+        try {
+            const content = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = 'renamed_images.zip';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        } catch (error) {
+            alert('압축 중 오류가 발생했습니다.');
+            console.error(error);
+        } finally {
+            downloadAllBtn.textContent = '전체 ZIP으로 다운로드';
+            downloadAllBtn.style.backgroundColor = '#0070f3';
         }
-
-        // 원본 파일의 확장자 추출 (예: png, jpg)
-        const extension = currentFile.name.split('.').pop();
-        const finalFileName = `${newName}.${extension}`;
-
-        // 가상의 a 태그를 만들어 다운로드 트리거
-        const downloadLink = document.createElement('a');
-        downloadLink.href = URL.createObjectURL(currentFile);
-        downloadLink.download = finalFileName;
-        
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        // 메모리 정리
-        URL.revokeObjectURL(downloadLink.href);
     });
 </script>
 
