@@ -213,7 +213,7 @@
 <div class="container">
     <div class="header">
         <h2>Batch Image Renamer</h2>
-        <span class="status-badge">v2.0.0-beta</span>
+        <span class="status-badge">v2.1.0-stable</span>
     </div>
 
     <div class="panel">
@@ -335,14 +335,14 @@
         });
     });
 
-    // 딜레이 함수 (브라우저 동시 다운로드 차단 방지용)
+    // 딜레이 함수 (시간 증가)
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    // 개별 원본 파일 순차 다운로드
+    // 개별 원본 파일 순차 다운로드 (안전성 강화)
     downloadAllBtn.addEventListener('click', async function() {
         if (uploadedFiles.length === 0) return;
 
-        downloadAllBtn.textContent = 'Downloading...';
+        downloadAllBtn.textContent = 'Downloading... Do not close window';
         downloadAllBtn.style.opacity = '0.5';
         downloadAllBtn.style.pointerEvents = 'none';
 
@@ -355,26 +355,31 @@
             const file = uploadedFiles[i];
 
             if (finalName && file) {
-                // 원본 데이터를 그대로 URL로 생성하여 화질 보존
+                const objectUrl = URL.createObjectURL(file);
                 const link = document.createElement('a');
-                link.href = URL.createObjectURL(file);
+                link.href = objectUrl;
                 link.download = `${finalName}${finalExt}`;
                 
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 
-                // 메모리 해제
-                setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                // [핵심 변경점] 메모리 해제를 1초가 아닌 60초 뒤로 미루어 크롬이 충분히 다운로드할 시간을 줌
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
 
-                // 브라우저가 다중 다운로드를 스팸으로 인식하지 않도록 300ms 대기
-                await delay(300);
+                // [핵심 변경점] 크롬 스팸 차단 방지를 위해 다운로드 간격을 0.3초 -> 0.8초로 늘림
+                await delay(800);
             }
         }
 
-        downloadAllBtn.textContent = 'Download All (High Quality)';
+        downloadAllBtn.textContent = 'Download All Completed!';
         downloadAllBtn.style.opacity = '1';
-        downloadAllBtn.style.pointerEvents = 'auto';
+        
+        // 3초 뒤에 원래 텍스트로 복구
+        setTimeout(() => {
+            downloadAllBtn.textContent = 'Download All (High Quality)';
+            downloadAllBtn.style.pointerEvents = 'auto';
+        }, 3000);
     });
 </script>
 
