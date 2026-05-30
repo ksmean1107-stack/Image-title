@@ -1,7 +1,6 @@
 // Vercel Serverless Function
 // POST /api/download
-// body: multipart/form-data  { file: <binary>, filename: <string> }
-// 응답: Content-Disposition attachment 헤더 포함 → 안드로이드 크롬에서도 파일명 강제 적용
+// body: multipart/form-data { file: <binary>, filename: <string> }
 
 export const config = { api: { bodyParser: false } };
 
@@ -12,25 +11,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // multipart 파싱 (Vercel edge에서 formdata 직접 파싱)
     const formData = await parseMultipart(req);
     const file = formData.file;
     const filename = formData.filename || 'download';
 
-    if (!file) {
-      res.status(400).end('No file');
-      return;
-    }
+    if (!file) { res.status(400).end('No file'); return; }
 
     const encoded = encodeURIComponent(filename);
 
     res.setHeader('Content-Type', file.type || 'application/octet-stream');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${filename}"; filename*=UTF-8''${encoded}`
-    );
+    res.setHeader('Content-Disposition',
+      `attachment; filename="${filename}"; filename*=UTF-8''${encoded}`);
     res.setHeader('Content-Length', file.data.length);
     res.setHeader('Access-Control-Allow-Origin', '*');
+    // 캐시 완전 비활성화
+    res.setHeader('Cache-Control', 'no-store');
     res.status(200).end(file.data);
   } catch (e) {
     console.error(e);
@@ -38,7 +33,6 @@ export default async function handler(req, res) {
   }
 }
 
-// 간단한 multipart/form-data 파서
 async function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -59,14 +53,11 @@ async function parseMultipart(req) {
           if (headerEnd === -1) continue;
           const headerStr = part.slice(0, headerEnd).toString();
           const data = part.slice(headerEnd + 4);
-
           const nameMatch = headerStr.match(/name="([^"]+)"/);
           const filenameMatch = headerStr.match(/filename="([^"]+)"/);
           const typeMatch = headerStr.match(/Content-Type:\s*([^\r\n]+)/i);
-
           if (!nameMatch) continue;
           const name = nameMatch[1];
-
           if (filenameMatch) {
             result[name] = {
               filename: filenameMatch[1],
@@ -93,6 +84,5 @@ function splitBuffer(buf, delimiter) {
     start = idx + delimiter.length;
   }
   parts.push(buf.slice(start));
-  // 첫 번째(빈 항목)와 마지막(--\r\n) 제거
   return parts.slice(1).filter(p => p.length > 4);
 }
