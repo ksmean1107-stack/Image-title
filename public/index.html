@@ -843,6 +843,7 @@
   // 안드로이드 크롬에서도 파일명 100% 강제 적용
   async function triggerDownload(blob, filename) {
     try {
+      // API로 blob 전송 → Content-Disposition 헤더로 응답받기
       const form = new FormData();
       form.append('file', blob, filename);
       form.append('filename', filename);
@@ -850,18 +851,26 @@
       const res = await fetch('/api/download', { method: 'POST', body: form });
       if (!res.ok) throw new Error('API error');
 
-      const dlBlob = await res.blob();
-      const url = URL.createObjectURL(dlBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // 응답을 arrayBuffer로 받아서 새 Blob 생성
+      const buf = await res.arrayBuffer();
+      const mime = blob.type || 'application/octet-stream';
+      const finalBlob = new Blob([buf], { type: mime });
+
+      // base64 data URL 방식 — 안드로이드에서 가장 안정적
+      const reader = new FileReader();
+      reader.onload = () => {
+        const a = document.createElement('a');
+        a.href = reader.result;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+      reader.readAsDataURL(finalBlob);
+
     } catch (e) {
-      // 폴백: base64 data URL
+      // 폴백: 원본 blob을 base64로
       const reader = new FileReader();
       reader.onload = () => {
         const a = document.createElement('a');
@@ -959,4 +968,4 @@
   }
 </script>
 </body>
-  </html>
+</html>
