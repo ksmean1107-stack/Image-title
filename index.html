@@ -2,294 +2,125 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Batch Renamer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Renamer Pro</title>
     <style>
         :root {
             --bg-color: #000000;
             --panel-bg: #111111;
             --border-color: #333333;
-            --text-main: #f5f5f5;
-            --text-muted: #888888;
+            --text-main: #ffffff;
+            --text-muted: #999999;
             --accent-color: #0070f3;
-            --accent-hover: #005bb5;
-            --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
-            --font-mono: 'Fira Code', monospace;
         }
 
-        body {
-            font-family: var(--font-sans);
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 16px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent; /* 모바일 터치 깜빡임 제거 */
-        }
-
-        .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 16px; }
-
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
-        h2 { margin: 0; font-size: 20px; font-weight: 700; }
-        .status-badge { font-family: var(--font-mono); font-size: 11px; background: #222; padding: 4px 8px; border-radius: 6px; color: var(--accent-color); }
-
-        .panel { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; }
-
-        /* 터치 친화적 업로드 영역 */
-        .upload-section {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 30px 16px; border: 2px dashed var(--border-color); border-radius: 8px;
-            background-color: #080808; cursor: pointer; transition: 0.2s;
-        }
-        .upload-section:active { background-color: #1a1a1a; }
-        .upload-icon { font-size: 28px; margin-bottom: 8px; }
-
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; }
+        .panel { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        
+        .upload-section { display: flex; flex-direction: column; align-items: center; padding: 30px; border: 2px dashed var(--border-color); border-radius: 12px; cursor: pointer; }
+        
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
         .input-group { display: flex; flex-direction: column; gap: 6px; }
-        .input-group.full { grid-column: 1 / -1; }
+        input, select { background: #000; border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; }
         
-        label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
-        input[type="text"], input[type="number"], select {
-            background-color: #000; border: 1px solid var(--border-color); color: var(--text-main);
-            padding: 12px; border-radius: 8px; font-family: var(--font-mono); font-size: 14px;
-            appearance: none; outline: none;
-        }
-        input:focus, select:focus { border-color: var(--accent-color); }
-        .range-wrapper { display: flex; align-items: center; gap: 8px; }
-        .range-wrapper input { width: 100%; text-align: center; }
+        .btn { background: var(--text-main); color: #000; border: none; padding: 14px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 10px; }
+        .btn-primary { background: var(--accent-color); color: #fff; }
 
-        /* 모바일 터치 버튼 최적화 (높이 및 패딩 확장) */
-        .btn {
-            background-color: var(--text-main); color: var(--bg-color); border: none;
-            padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px;
-            cursor: pointer; display: flex; justify-content: center; align-items: center; width: 100%;
-        }
-        .btn-outline { background-color: transparent; color: var(--text-main); border: 1px solid var(--border-color); }
-        .btn-primary { background-color: var(--accent-color); color: #fff; }
-
-        /* 파일 리스트 반응형 구조 */
-        .file-list { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px; margin-bottom: 16px;}
-        .file-row { display: flex; align-items: center; gap: 12px; padding: 10px; background-color: #000; border: 1px solid var(--border-color); border-radius: 8px; }
-        .file-row img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-        .file-info { display: flex; flex: 1; gap: 8px; }
-        .file-info input { flex: 1; min-width: 0; padding: 8px; font-size: 13px; }
-        .file-info select { width: 75px; padding: 8px; font-size: 13px; }
-
-        /* 자체 콘솔창 (디버깅용) */
-        .console-panel {
-            background-color: #050505; border: 1px solid #222; border-radius: 8px;
-            padding: 12px; height: 120px; overflow-y: auto; font-family: var(--font-mono); font-size: 11px;
-            display: flex; flex-direction: column; gap: 4px;
-        }
-        .log-line { color: #aaa; word-break: break-all; }
-        .log-error { color: #ff5555; }
-        .log-info { color: #55ff55; }
-        .console-header { font-size: 10px; color: #555; margin-bottom: 6px; border-bottom: 1px solid #222; padding-bottom: 4px; }
+        .file-list { display: flex; flex-direction: column; gap: 10px; }
+        .file-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: #000; border-radius: 6px; font-size: 13px; }
+        .file-row input { flex: 1; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <h2>Mobile Renamer</h2>
-        <span class="status-badge">v4.0.0-Mobile</span>
-    </div>
-
     <div class="panel">
         <label class="upload-section">
-            <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
-            <div class="upload-icon">📸</div>
-            <div style="font-size: 13px; color: var(--text-muted); text-align: center;">터치하여 이미지 선택<br>(여러 장 선택 가능)</div>
+            <input type="file" id="imageInput" multiple style="display: none;">
+            <div>📁 이미지 선택</div>
         </label>
     </div>
 
     <div class="panel">
         <div class="settings-grid">
-            <div class="input-group full">
-                <label>이름 규칙 ( {NUMBER} 치환 )</label>
-                <input type="text" id="patternInput" value="리나_{NUMBER}">
-            </div>
-            <div class="input-group full">
-                <label>숫자 범위 (시작 ~ 끝)</label>
-                <div class="range-wrapper">
-                    <input type="number" id="startNum" value="1" min="0">
-                    <span style="color: var(--text-muted);">~</span>
-                    <input type="number" id="endNum" value="9" min="0">
-                </div>
+            <div class="input-group" style="grid-column: span 2;">
+                <label>이름 패턴 ({NUMBER})</label>
+                <input type="text" id="patternInput" value="image_{NUMBER}">
             </div>
             <div class="input-group">
-                <label>자릿수 (2 = 01)</label>
-                <input type="number" id="padLen" value="2" min="1">
+                <label>시작 번호</label>
+                <input type="number" id="startNum" value="1">
             </div>
             <div class="input-group">
-                <label>확장자 일괄변경</label>
-                <select id="globalExt">
-                    <option value="">유지</option>
-                    <option value=".png">.png</option>
-                    <option value=".jpg">.jpg</option>
-                    <option value=".webp">.webp</option>
-                </select>
+                <label>패딩 (예: 2 -> 01)</label>
+                <input type="number" id="padLen" value="2">
             </div>
         </div>
-        <button class="btn btn-outline" id="applyBtn">규칙 적용하기</button>
+        <button class="btn" id="applyBtn">규칙 적용</button>
     </div>
 
     <div id="fileListContainer" class="panel" style="display: none;">
-        <label style="display: block; margin-bottom: 12px; font-size: 12px;">대기열</label>
         <div class="file-list" id="fileList"></div>
-        <button class="btn btn-primary" id="downloadAllBtn">모바일 안전 다운로드 실행</button>
-    </div>
-
-    <div class="console-panel" id="customConsole">
-        <div class="console-header">System Console Ready.</div>
+        <button class="btn btn-primary" id="downloadAllBtn">다운로드 시작</button>
     </div>
 </div>
 
 <script>
-    // --- [1] 커스텀 콘솔 가로채기 ---
-    const consoleBox = document.getElementById('customConsole');
-    function customLog(msg, type = 'log-line') {
-        const line = document.createElement('div');
-        line.className = type;
-        const time = new Date().toLocaleTimeString('en-US', {hour12: false});
-        line.textContent = `[${time}] ${msg}`;
-        consoleBox.appendChild(line);
-        consoleBox.scrollTop = consoleBox.scrollHeight;
-    }
-    console.log = (msg) => customLog(msg, 'log-info');
-    console.error = (msg) => customLog(msg, 'log-error');
-    window.onerror = function(message, source, lineno) {
-        console.error(`에러발생: ${message} (줄: ${lineno})`);
-    };
-    // ---------------------------------
-
-    console.log("모바일 환경 UI 및 로직 초기화 완료.");
-
     const imageInput = document.getElementById('imageInput');
     const fileList = document.getElementById('fileList');
-    const fileListContainer = document.getElementById('fileListContainer');
-    const applyBtn = document.getElementById('applyBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
 
     let uploadedFiles = [];
 
-    // 파일 업로드
-    imageInput.addEventListener('change', function(event) {
-        const files = Array.from(event.target.files);
-        if (files.length === 0) return;
-
-        console.log(`${files.length}개의 파일 로드 시작.`);
-        fileListContainer.style.display = 'block';
-
-        files.forEach(file => {
-            uploadedFiles.push(file);
-            const originalName = file.name.substring(0, file.name.lastIndexOf('.'));
-            const originalExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-            const objectURL = URL.createObjectURL(file);
-
+    // 파일 로드 시 콘솔 로그 출력
+    imageInput.addEventListener('change', (e) => {
+        uploadedFiles = Array.from(e.target.files);
+        console.log("파일 업로드 완료. 총 파일 개수:", uploadedFiles.length);
+        
+        document.getElementById('fileListContainer').style.display = 'block';
+        fileList.innerHTML = '';
+        
+        uploadedFiles.forEach((file, index) => {
             const row = document.createElement('div');
             row.className = 'file-row';
             row.innerHTML = `
-                <img src="${objectURL}" alt="preview">
-                <div class="file-info">
-                    <input type="text" class="row-name" value="${originalName}">
-                    <select class="row-ext">
-                        <option value=".png" ${originalExt === '.png' ? 'selected' : ''}>.png</option>
-                        <option value=".jpg" ${originalExt === '.jpg' || originalExt === '.jpeg' ? 'selected' : ''}>.jpg</option>
-                        <option value=".webp" ${originalExt === '.webp' ? 'selected' : ''}>.webp</option>
-                        <option value=".gif" ${originalExt === '.gif' ? 'selected' : ''}>.gif</option>
-                    </select>
-                </div>
+                <input type="text" value="${file.name}" class="row-name">
             `;
             fileList.appendChild(row);
         });
-        
-        console.log("파일 UI 렌더링 완료.");
-        imageInput.value = '';
     });
 
-    // 일괄 적용
-    applyBtn.addEventListener('click', function() {
-        try {
-            const pattern = document.getElementById('patternInput').value;
-            const start = parseInt(document.getElementById('startNum').value);
-            const end = parseInt(document.getElementById('endNum').value);
-            const pad = parseInt(document.getElementById('padLen').value);
-            const globalExt = document.getElementById('globalExt').value;
+    // 다운로드 로직 (확장자 변경 시 MIME 타입 충돌 방지)
+    downloadAllBtn.addEventListener('click', async () => {
+        const rows = document.querySelectorAll('.row-name');
+        console.log("다운로드 시작");
 
-            const rows = document.querySelectorAll('.file-row');
-            let currentNum = start;
+        for(let i = 0; i < uploadedFiles.length; i++) {
+            const file = uploadedFiles[i];
+            const newName = rows[i].value;
+            
+            console.log(`다운로드 중: ${newName}`);
 
-            rows.forEach(row => {
-                if (currentNum > end) return; 
-                const nameInput = row.querySelector('.row-name');
-                const extSelect = row.querySelector('.row-ext');
-
-                const paddedNum = String(currentNum).padStart(pad, '0');
-                nameInput.value = pattern.replace('{NUMBER}', paddedNum);
-                if (globalExt !== "") extSelect.value = globalExt;
-                currentNum++;
-            });
-            console.log("이름 및 확장자 규칙 적용 완료.");
-        } catch(e) {
-            console.error("규칙 적용 중 오류: " + e.message);
-        }
-    });
-
-    // 모바일 안전 순차 다운로드 로직
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-    downloadAllBtn.addEventListener('click', async function() {
-        if (uploadedFiles.length === 0) {
-            console.error("다운로드할 파일이 없습니다.");
-            return;
-        }
-
-        downloadAllBtn.textContent = '처리 중... 닫지 마세요';
-        downloadAllBtn.style.opacity = '0.5';
-        downloadAllBtn.style.pointerEvents = 'none';
-
-        const rows = document.querySelectorAll('.file-row');
-        console.log("다운로드 시퀀스 시작 (모바일 안전 모드)");
-
-        for (let i = 0; i < rows.length; i++) {
             try {
-                const row = rows[i];
-                const finalName = row.querySelector('.row-name').value.trim();
-                const finalExt = row.querySelector('.row-ext').value;
-                const file = uploadedFiles[i];
-
-                if (finalName && file) {
-                    const fullName = `${finalName}${finalExt}`;
-                    console.log(`[${i+1}/${rows.length}] ${fullName} 다운로드 준비 중...`);
-                    
-                    const objectUrl = URL.createObjectURL(file);
-                    const link = document.createElement('a');
-                    link.href = objectUrl;
-                    link.download = fullName;
-                    
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    // 모바일 브라우저의 경우 탭이 생성되거나 다운로드 팝업이 뜰 시간을 충분히 제공
-                    await delay(1500); 
-                    
-                    // 메모리 해제 지연
-                    setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
-                }
-            } catch(e) {
-                console.error(`파일 ${i+1} 다운로드 실패: ` + e.message);
+                // Blob을 생성할 때 원본 파일의 타입을 그대로 유지
+                const blob = new Blob([file], { type: file.type });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = newName; // 이름만 변경 (파일 데이터 변조 없음)
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                await new Promise(r => setTimeout(r, 500)); // 스팸 방지
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error(`파일 ${newName} 다운로드 중 오류 발생:`, err);
             }
         }
-
-        console.log("모든 다운로드 명령 전송 완료.");
-        downloadAllBtn.textContent = '모바일 안전 다운로드 실행';
-        downloadAllBtn.style.opacity = '1';
-        downloadAllBtn.style.pointerEvents = 'auto';
+        console.log("모든 다운로드 작업 완료");
     });
 </script>
 
