@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 이름 변경기</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .upload-box {
+            border: 2px dashed #007bff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background-color: #f9fbfd;
+        }
+        input[type="file"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 200px;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+            object-fit: contain;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>이미지 이름 변경기</h2>
+    
+    <div class="upload-box">
+        <input type="file" id="imageInput" accept="image/*">
+        <img id="imagePreview" alt="미리보기 이미지">
+    </div>
+
+    <div class="input-group">
+        <label for="newNameInput">새로운 파일 이름 (확장자 제외)</label>
+        <input type="text" id="newNameInput" placeholder="예: 변경할-이미지-이름">
+    </div>
+
+    <button id="downloadBtn">새 이름으로 저장하기</button>
+</div>
+
+<script>
+    const imageInput = document.getElementById('imageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const newNameInput = document.getElementById('newNameInput');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let currentFile = null;
+
+    // 이미지 업로드 시 미리보기 및 기존 이름 표시
+    imageInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            currentFile = file;
+            
+            // 이미지 미리보기 렌더링
+            imagePreview.src = URL.createObjectURL(file);
+            imagePreview.style.display = 'inline-block';
+
+            // 기존 파일 이름에서 확장자를 제외한 부분만 추출하여 입력창에 채워줌
+            const nameParts = file.name.split('.');
+            nameParts.pop(); // 확장자 제거
+            newNameInput.value = nameParts.join('.');
+        }
+    });
+
+    // 다운로드 버튼 클릭 이벤트
+    downloadBtn.addEventListener('click', function() {
+        if (!currentFile) {
+            alert('먼저 이미지를 업로드해주세요.');
+            return;
+        }
+
+        const newName = newNameInput.value.trim();
+        if (!newName) {
+            alert('새로운 파일 이름을 입력해주세요.');
+            return;
+        }
+
+        // 원본 파일의 확장자 추출 (예: png, jpg)
+        const extension = currentFile.name.split('.').pop();
+        const finalFileName = `${newName}.${extension}`;
+
+        // 가상의 a 태그를 만들어 다운로드 트리거
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(currentFile);
+        downloadLink.download = finalFileName;
+        
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // 메모리 정리
+        URL.revokeObjectURL(downloadLink.href);
+    });
+</script>
+
+</body>
+</html>
