@@ -421,23 +421,23 @@
     if (!files.length) return;
     dlAllBtn.disabled = true;
     const total = files.length;
-    let done = 0;
     showToast('⏳', `0 / ${total} 처리 중...`);
     try {
-      // 병렬 처리 (최대 3개 동시)
-      const CONCURRENCY = 3;
-      for (let i = 0; i < total; i += CONCURRENCY) {
-        const batch = files.slice(i, i + CONCURRENCY);
-        await Promise.all(batch.map(async (item, j) => {
-          const blob = await reExportBlob(item);
-          await triggerDownload(blob, item.renamedName);
-          done++;
-          showToast('⏳', `${done} / ${total} 처리 중...`);
-        }));
+      for (let i = 0; i < total; i++) {
+        const item = files[i];
+        showToast('⏳', `${i + 1} / ${total} 처리 중...`);
+        const blob = await reExportBlob(item);
+        await triggerDownload(blob, item.renamedName);
+        // 다운로드 간 충분한 딜레이 — 안드로이드가 이전 다운로드 완료 후 다음 처리
+        await new Promise(r => setTimeout(r, 800));
       }
       showToast('📦', `${total}개 다운로드 완료!`);
-    } catch { showToast('⚠️', '오류가 발생했습니다'); }
-    finally { dlAllBtn.disabled = false; }
+    } catch (e) {
+      console.error(e);
+      showToast('⚠️', '오류가 발생했습니다');
+    } finally {
+      dlAllBtn.disabled = false;
+    }
   });
 
   // ── HELPERS ──
