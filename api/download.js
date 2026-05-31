@@ -1,36 +1,48 @@
-// Vercel Serverless Function
-// POST /api/download
-// body: multipart/form-data { file: <binary>, filename: <string> }
+// POST /api/download  → blob을 Vercel Blob에 임시 저장 후 URL 반환
+// GET  /api/download?id=xxx&filename=리나_01.png → 해당 blob을 Content-Disposition과 함께 응답
+
+import { put, get, del } from '@vercel/blob';
 
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.status(405).end('Method Not Allowed');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  // ── POST: blob 저장 → 다운로드 URL 반환 ──
+  if (req.method === 'POST') {
+    try {
+      const formData = await parseMultipart(req);
+      const file = formData.file;
+      const filename = formData.filename || 'download';
+      if (!file) { res.status(400).json({ error: 'No file' }); return; }
+
+      // 파일명을 경로에 포함시켜 저장 → URL에 파일명이 들어감
+      const safeName = filename.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+      const blobPath = `tmp/${Date.now()}_${safeName}`;
+
+      const { url } = await put(blobPath, file.data, {
+        access: 'public',
+        contentType: file.type || 'application/octet-stream',
+        addRandomSuffix: false,
+      });
+
+      // 5분 후 자동 삭제 (백그라운드)
+      setTimeout(async () => {
+        try { await del(url); } catch {}
+      }, 5 * 60 * 1000);
+
+      res.status(200).json({ url, filename });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
     return;
   }
 
-  try {
-    const formData = await parseMultipart(req);
-    const file = formData.file;
-    const filename = formData.filename || 'download';
-
-    if (!file) { res.status(400).end('No file'); return; }
-
-    const encoded = encodeURIComponent(filename);
-
-    res.setHeader('Content-Type', file.type || 'application/octet-stream');
-    res.setHeader('Content-Disposition',
-      `attachment; filename="${filename}"; filename*=UTF-8''${encoded}`);
-    res.setHeader('Content-Length', file.data.length);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    // 캐시 완전 비활성화
-    res.setHeader('Cache-Control', 'no-store');
-    res.status(200).end(file.data);
-  } catch (e) {
-    console.error(e);
-    res.status(500).end('Server Error');
-  }
+  res.status(405).end('Method Not Allowed');
 }
 
 async function parseMultipart(req) {
@@ -43,11 +55,9 @@ async function parseMultipart(req) {
         const contentType = req.headers['content-type'] || '';
         const boundaryMatch = contentType.match(/boundary=(.+)$/);
         if (!boundaryMatch) return reject(new Error('No boundary'));
-
         const boundary = '--' + boundaryMatch[1];
         const parts = splitBuffer(body, Buffer.from('\r\n' + boundary));
         const result = {};
-
         for (const part of parts) {
           const headerEnd = part.indexOf('\r\n\r\n');
           if (headerEnd === -1) continue;
@@ -77,8 +87,7 @@ async function parseMultipart(req) {
 
 function splitBuffer(buf, delimiter) {
   const parts = [];
-  let start = 0;
-  let idx;
+  let start = 0, idx;
   while ((idx = buf.indexOf(delimiter, start)) !== -1) {
     parts.push(buf.slice(start, idx));
     start = idx + delimiter.length;
