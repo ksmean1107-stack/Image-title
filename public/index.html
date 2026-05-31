@@ -600,7 +600,10 @@
 
   // ── DROPZONE ──
   dropzone.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => addFiles(e.target.files));
+  fileInput.addEventListener('change', e => {
+    addFiles(e.target.files);
+    e.target.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
+  });
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
   dropzone.addEventListener('drop', e => {
@@ -933,4 +936,4 @@
   }
 </script>
 </body>
-</html>
+    </html>
